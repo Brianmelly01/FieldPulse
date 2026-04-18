@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MdAdd, MdEdit, MdDelete, MdPerson } from 'react-icons/md';
+import { MdAdd, MdEdit, MdDelete, MdPerson, MdClose } from 'react-icons/md';
 import { format } from 'date-fns';
 import { usersApi } from '../api/index.js';
 import { useAuth }  from '../context/AuthContext.jsx';
-import { MdClose }  from 'react-icons/md';
 
 function initials(n = '') {
   return n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -14,8 +13,8 @@ function safeFmt(d) {
 }
 
 // ─── Add/Edit User Modal ───────────────────────────────────
-function UserModal({ editUser = null, onClose, onSaved }) {
-  const EMPTY = { name: '', email: '', password: '', role: 'agent' };
+function UserModal({ editUser = null, defaultRole = 'agent', onClose, onSaved }) {
+  const EMPTY = { name: '', email: '', password: '', role: defaultRole };
   const [form, setForm]       = useState(editUser
     ? { name: editUser.name, email: editUser.email, password: '', role: editUser.role }
     : EMPTY
@@ -45,30 +44,50 @@ function UserModal({ editUser = null, onClose, onSaved }) {
     }
   }
 
+  const isAdmin = form.role === 'admin';
+  const roleColor   = isAdmin ? 'var(--gold)'    : 'var(--primary)';
+  const roleGlow    = isAdmin ? 'var(--gold-dim)' : 'var(--primary-glow)';
+  const roleBorder  = isAdmin ? 'rgba(249,168,37,0.35)' : 'rgba(91,176,67,0.3)';
+  const roleEmoji   = isAdmin ? '🌟' : '🌾';
+  const roleLabel   = isAdmin ? 'Admin / Coordinator' : 'Field Agent';
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" style={{ maxWidth: 480 }}>
         <div className="modal-header">
-          <h2 className="modal-title">{editUser ? '✏️ Edit Team Member' : '👤 Add Team Member'}</h2>
+          <div>
+            <h2 className="modal-title">
+              {editUser ? '✏️ Edit Member' : `${roleEmoji} Add ${roleLabel}`}
+            </h2>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 6, padding: '2px 10px', borderRadius: 20,
+              background: roleGlow, border: `1px solid ${roleBorder}`,
+              fontSize: '0.72rem', fontWeight: 700, color: roleColor,
+              letterSpacing: '0.05em', textTransform: 'uppercase',
+            }}>
+              {roleLabel}
+            </div>
+          </div>
           <button className="modal-close" onClick={onClose}><MdClose /></button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">Full Name *</label>
+            <input className="form-input" placeholder={isAdmin ? 'e.g. Grace Mensah' : 'e.g. James Asante'} value={form.name}
+              onChange={e => set('name', e.target.value)} required />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Email Address *</label>
+            <input className="form-input" type="email" placeholder="name@fieldpulse.com" value={form.email}
+              onChange={e => set('email', e.target.value)} required />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              <label className="form-label">Full Name *</label>
-              <input className="form-input" placeholder="e.g. James Asante" value={form.name}
-                onChange={e => set('name', e.target.value)} required />
-            </div>
-
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              <label className="form-label">Email Address *</label>
-              <input className="form-input" type="email" placeholder="james@fieldpulse.com" value={form.email}
-                onChange={e => set('email', e.target.value)} required />
-            </div>
-
             <div className="form-group">
-              <label className="form-label">{editUser ? 'New Password (leave blank to keep)' : 'Password *'}</label>
+              <label className="form-label">{editUser ? 'New Password (optional)' : 'Password *'}</label>
               <input className="form-input" type="password" placeholder="••••••••" value={form.password}
                 onChange={e => set('password', e.target.value)} />
             </div>
@@ -82,12 +101,34 @@ function UserModal({ editUser = null, onClose, onSaved }) {
             </div>
           </div>
 
+          {/* Role info card */}
+          <div style={{
+            padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+            background: roleGlow, border: `1px solid ${roleBorder}`,
+            fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5,
+          }}>
+            {isAdmin
+              ? '🌟 Admins can manage the entire team, add or remove members, and oversee all field operations.'
+              : '🌾 Field Agents can log updates on assigned fields and view their own task dashboard.'}
+          </div>
+
           {error && <div className="error-banner">⚠️ {error}</div>}
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading} id="save-user-btn">
-              <MdPerson /> {loading ? 'Saving…' : editUser ? 'Save Changes' : 'Add Member'}
+            <button
+              type="submit"
+              className="btn"
+              disabled={loading}
+              id="save-user-btn"
+              style={{
+                background: roleColor,
+                color: isAdmin ? '#1A1000' : '#fff',
+                fontWeight: 700,
+              }}
+            >
+              <MdPerson />
+              {loading ? 'Saving…' : editUser ? 'Save Changes' : `Add ${roleLabel}`}
             </button>
           </div>
         </form>
@@ -101,7 +142,7 @@ export default function Users() {
   const { user: me }           = useAuth();
   const [users,   setUsers]    = useState([]);
   const [loading, setLoading]  = useState(true);
-  const [showAdd, setShowAdd]  = useState(false);
+  const [modal,   setModal]    = useState(null); // null | { defaultRole, editUser? }
   const [editing, setEditing]  = useState(null);
 
   const load = useCallback(() => {
@@ -127,25 +168,54 @@ export default function Users() {
   return (
     <div className="fade-in">
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ flexWrap: 'wrap' }}>
         <div>
           <h1 className="page-title">👥 Team</h1>
           <p className="page-subtitle">
             {admins.length} coordinator{admins.length !== 1 ? 's' : ''} · {agents.length} field agent{agents.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)} id="add-user-btn">
-          <MdAdd /> Add Member
-        </button>
+
+        {/* Dual add buttons */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            className="btn"
+            id="add-admin-btn"
+            onClick={() => setModal({ defaultRole: 'admin' })}
+            style={{
+              background: 'var(--gold-dim)',
+              color: 'var(--gold-light)',
+              border: '1px solid rgba(249,168,37,0.3)',
+              fontWeight: 600,
+            }}
+          >
+            <MdAdd /> Add Admin
+          </button>
+          <button
+            className="btn btn-primary"
+            id="add-agent-btn"
+            onClick={() => setModal({ defaultRole: 'agent' })}
+          >
+            <MdAdd /> Add Field Agent
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="loader-wrap"><div className="spinner" /></div>
       ) : (
         <>
-          {/* Coordinators */}
-          <div className="section-title" style={{ marginBottom: 14 }}>🌟 Coordinators</div>
-          <div className="table-wrap" style={{ marginBottom: 28 }}>
+          {/* ── Coordinators ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <span className="section-title" style={{ margin: 0 }}>🌟 Coordinators</span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', padding: '1px 9px',
+              borderRadius: 20, background: 'var(--gold-dim)', border: '1px solid rgba(249,168,37,0.25)',
+              fontSize: '0.72rem', fontWeight: 700, color: 'var(--gold)',
+            }}>{admins.length}</span>
+          </div>
+
+          <div className="table-wrap" style={{ marginBottom: 32 }}>
             <table>
               <thead>
                 <tr>
@@ -157,14 +227,25 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
+                {admins.length === 0 && (
+                  <tr><td colSpan={5}>
+                    <div className="empty-state" style={{ padding: 24 }}>
+                      <div className="empty-icon">🌟</div>
+                      <div className="empty-sub">No coordinators yet.</div>
+                    </div>
+                  </td></tr>
+                )}
                 {admins.map(u => (
                   <tr key={u.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div className="user-avatar" style={{ width: 32, height: 32, fontSize: '0.72rem' }}>{initials(u.name)}</div>
+                        <div className="user-avatar" style={{
+                          width: 32, height: 32, fontSize: '0.72rem',
+                          background: 'linear-gradient(135deg, #7A6200, var(--gold))',
+                        }}>{initials(u.name)}</div>
                         <div>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</div>
-                          {u.id === me.id && <div style={{ fontSize: '0.68rem', color: 'var(--primary)' }}>You</div>}
+                          {u.id === me.id && <div style={{ fontSize: '0.68rem', color: 'var(--gold)' }}>You</div>}
                         </div>
                       </div>
                     </td>
@@ -185,8 +266,16 @@ export default function Users() {
             </table>
           </div>
 
-          {/* Field Agents */}
-          <div className="section-title" style={{ marginBottom: 14 }}>🌾 Field Agents</div>
+          {/* ── Field Agents ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <span className="section-title" style={{ margin: 0 }}>🌾 Field Agents</span>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', padding: '1px 9px',
+              borderRadius: 20, background: 'var(--primary-glow)', border: '1px solid rgba(91,176,67,0.25)',
+              fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary-light)',
+            }}>{agents.length}</span>
+          </div>
+
           <div className="table-wrap">
             <table>
               <thead>
@@ -199,13 +288,22 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
+                {agents.length === 0 && (
+                  <tr><td colSpan={5}>
+                    <div className="empty-state" style={{ padding: 24 }}>
+                      <div className="empty-icon">🌾</div>
+                      <div className="empty-sub">No field agents yet. Add one to get started.</div>
+                    </div>
+                  </td></tr>
+                )}
                 {agents.map(u => (
                   <tr key={u.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div className="user-avatar" style={{ width: 32, height: 32, fontSize: '0.72rem', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary))' }}>
-                          {initials(u.name)}
-                        </div>
+                        <div className="user-avatar" style={{
+                          width: 32, height: 32, fontSize: '0.72rem',
+                          background: 'linear-gradient(135deg, var(--primary-dark), var(--primary))',
+                        }}>{initials(u.name)}</div>
                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.name}</span>
                       </div>
                     </td>
@@ -222,22 +320,15 @@ export default function Users() {
                     </td>
                   </tr>
                 ))}
-                {agents.length === 0 && (
-                  <tr><td colSpan={5}>
-                    <div className="empty-state" style={{ padding: 24 }}>
-                      <div className="empty-icon">🌾</div>
-                      <div className="empty-sub">No field agents yet. Add one to get started.</div>
-                    </div>
-                  </td></tr>
-                )}
               </tbody>
             </table>
           </div>
         </>
       )}
 
-      {showAdd && <UserModal onClose={() => setShowAdd(false)} onSaved={load} />}
-      {editing  && <UserModal editUser={editing} onClose={() => setEditing(null)} onSaved={load} />}
+      {/* Modals */}
+      {modal   && <UserModal defaultRole={modal.defaultRole} onClose={() => setModal(null)}   onSaved={load} />}
+      {editing && <UserModal editUser={editing}              onClose={() => setEditing(null)} onSaved={load} />}
     </div>
   );
 }
