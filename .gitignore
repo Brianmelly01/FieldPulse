@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# SQLite database (regenerate with: npm run seed)
+server/fieldpulse.db
+server/fieldpulse.db-wal
+server/fieldpulse.db-shm
+
+# Environment variables
+server/.env
+.env
+
+# Build output
+client/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
